@@ -23,21 +23,27 @@ export const RecipeCard = ({ recipe, onDelete }: RecipeCardProps) => {
   /** Delete recipe and associated data */
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // prevent navigation
-    if (!confirm(`Delete "${recipe.title}"? This will also remove it from your meal plan and shopping list.`)) {
+    if (
+      !confirm(
+        `Delete "${recipe.title}"? This will also remove it from your meal plan and shopping list.`
+      )
+    ) {
       return;
     }
 
-    // Delete related records first
-    await supabase.from("shopping_list").delete().eq("recipe_id", recipe.id);
-    await supabase.from("meal_plan").delete().eq("recipe_id", recipe.id);
+    try {
+      // Delete related records first
+      await supabase.from("shopping_list").delete().eq("recipe_id", recipe.id);
+      await supabase.from("meal_plan").delete().eq("recipe_id", recipe.id);
 
-    const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
-    if (error) {
-      console.error(error);
-      toast.error("Failed to delete recipe");
-    } else {
+      const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
+      if (error) throw error;
+
       toast.success("Recipe deleted");
       onDelete?.();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete recipe");
     }
   };
 
@@ -79,4 +85,25 @@ export const RecipeCard = ({ recipe, onDelete }: RecipeCardProps) => {
         )}
       </div>
 
-      {/* Right side*
+      {/* Right side: edit/delete buttons */}
+      <div className="flex flex-shrink-0 gap-2">
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={handleEdit}
+          className="h-8 w-8"
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="destructive"
+          onClick={handleDelete}
+          className="h-8 w-8"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </Card>
+  );
+};
