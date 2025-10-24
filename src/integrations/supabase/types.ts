@@ -14,7 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          cuisines: string[]
+          id: string
+          is_vegetarian: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuisines?: string[]
+          id?: string
+          is_vegetarian?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cuisines?: string[]
+          id?: string
+          is_vegetarian?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      recipes: {
+        Row: {
+          created_at: string
+          cuisine: string | null
+          id: string
+          ingredients: string[]
+          instructions: string[]
+          prep_time: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuisine?: string | null
+          id?: string
+          ingredients: string[]
+          instructions: string[]
+          prep_time: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cuisine?: string | null
+          id?: string
+          ingredients?: string[]
+          instructions?: string[]
+          prep_time?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

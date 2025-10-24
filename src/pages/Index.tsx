@@ -1,10 +1,27 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/Layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChefHat, Calendar, Package, Sparkles } from "lucide-react";
+import { ChefHat, Calendar, Package, Sparkles, LogOut } from "lucide-react";
+import { AskSousaDialog } from "@/components/AskSousaDialog";
+import { useAuth } from "@/hooks/useAuth";
 import heroImage from "@/assets/hero-meal-planning.jpg";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, isLoading, signOut } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <MobileLayout>
       <div className="space-y-6">
@@ -20,6 +37,14 @@ const Index = () => {
             <h1 className="text-3xl font-bold text-foreground mb-1">Welcome to Sousa</h1>
             <p className="text-sm text-muted-foreground">Your personal meal planning assistant</p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={signOut}
+            className="absolute top-4 right-4 bg-background/80 hover:bg-background"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="p-4 space-y-4">
@@ -37,17 +62,9 @@ const Index = () => {
               </div>
             </Card>
 
-            <Card className="p-4 shadow-card hover:shadow-lg transition-shadow">
-              <div className="flex flex-col items-center text-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <ChefHat className="w-6 h-6 text-accent" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground">Ask Sousa</h3>
-                  <p className="text-xs text-muted-foreground">AI recipes</p>
-                </div>
-              </div>
-            </Card>
+            <div className="flex justify-center">
+              <AskSousaDialog />
+            </div>
           </div>
 
           {/* AI Feature Highlight */}
