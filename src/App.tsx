@@ -11,6 +11,7 @@ import Pantry from "./pages/Pantry";
 import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
 import RecipeDetail from "./pages/RecipeDetail"; // ✅ Added import
+import ShoppingCartPage from "./pages/ShoppingCart";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,7 @@ const App = () => (
 
           {/* ✅ New route for individual recipe details */}
           <Route path="/recipe/:id" element={<RecipeDetail />} />
-
+          <Route path="/shopping-cart" element={<ShoppingCartPage />} />
           {/* ⚠️ Keep this last — catch-all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
