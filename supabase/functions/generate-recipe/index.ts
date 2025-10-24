@@ -22,32 +22,26 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Initialize Supabase service role client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Fetch user dietary preferences
+    // Get user profile preferences
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_vegetarian, cuisines")
       .eq("user_id", userId)
       .single();
 
-    const dietaryInfo = profile?.is_vegetarian
-      ? "vegetarian-friendly"
-      : "any dietary preference";
+    const dietaryInfo = profile?.is_vegetarian ? "vegetarian-friendly" : "any dietary preference";
     const cuisineInfo = profile?.cuisines?.length
       ? `focusing on ${profile.cuisines.join(", ")} cuisines`
       : "";
 
-    const systemPrompt = `You are Sousa, a warm and friendly meal planning assistant. 
-Create a structured, easy-to-follow recipe that is ${dietaryInfo} ${cuisineInfo}.
-Always include: a title, full list of ingredients, and clear step-by-step instructions.`;
+    const systemPrompt = `You are Sousa, a friendly meal planning assistant. Create structured recipes that are ${dietaryInfo} ${cuisineInfo}.
+Always return recipes with clear ingredients and step-by-step instructions.`;
 
-    // 🔹 Call Lovable AI Gateway
+    // Ask AI to generate a recipe
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -58,10 +52,7 @@ Always include: a title, full list of ingredients, and clear step-by-step instru
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `${prompt} (for dinner tonight — include complete ingredients and steps)`,
-          },
+          { role: "user", content: prompt },
         ],
         tools: [
           {
@@ -89,7 +80,7 @@ Always include: a title, full list of ingredients, and clear step-by-step instru
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", errorText);
+      console.error("AI Error:", errorText);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -98,11 +89,11 @@ Always include: a title, full list of ingredients, and clear step-by-step instru
 
     const data = await response.json();
     const toolCall = data.choices[0].message.tool_calls?.[0];
-    if (!toolCall) throw new Error("Recipe generation failed.");
+    if (!toolCall) throw new Error("No recipe returned by AI");
 
     const recipe = JSON.parse(toolCall.function.arguments);
 
-    // 🔹 Save Recipe
+    // Save recipe
     const { data: savedRecipe, error: saveError } = await supabase
       .from("recipes")
       .insert({
@@ -118,35 +109,34 @@ Always include: a title, full list of ingredients, and clear step-by-step instru
 
     if (saveError) throw saveError;
 
-    // 🔹 Add to Meal Plan (for tonight)
+    // Add to meal_plan
     const today = new Date().toISOString().split("T")[0];
-    await supabase.from("meal_plan").insert({
+    const { error: planError } = await supabase.from("meal_plan").insert({
       user_id: userId,
       date: today,
       meal_type: "Dinner",
       recipe_id: savedRecipe.id,
     });
+    if (planError) console.error("Meal plan insert failed:", planError);
 
-    // 🔹 Generate Shopping List Items
-    const listItems = recipe.ingredients.map((item: string) => ({
+    // Add ingredients to shopping_list
+    const shoppingItems = recipe.ingredients.map((i: string) => ({
       user_id: userId,
-      ingredient: item,
       recipe_id: savedRecipe.id,
-      purchased: false,
+      ingredient: i,
     }));
 
-    const { error: listError } = await supabase.from("shopping_list").insert(listItems);
-    if (listError) console.error("Shopping list error:", listError);
+    const { error: listError } = await supabase.from("shopping_list").insert(shoppingItems);
+    if (listError) console.error("Shopping list insert failed:", listError);
 
-    // ✅ Return final recipe
     return new Response(JSON.stringify({ recipe: savedRecipe }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in generate-recipe function:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("Error in generate-recipe:", error);
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
