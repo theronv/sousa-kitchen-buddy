@@ -24,8 +24,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); // ✅ fixed variable reference
 
+    // 🔹 Load user preferences
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_vegetarian, cuisines")
@@ -40,6 +41,7 @@ serve(async (req) => {
     const systemPrompt = `You are Sousa, a friendly meal planning assistant. Create structured recipes that are ${dietaryInfo} ${cuisineInfo}.
 Always return recipes with clear ingredients and step-by-step instructions.`;
 
+    // 🔹 Call Lovable AI Gateway
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -117,18 +119,23 @@ Always return recipes with clear ingredients and step-by-step instructions.`;
     });
 
     // ✅ Add to shopping_list (one row per ingredient)
-    if (recipe.ingredients?.length > 0) {
+    if (Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
       const shoppingItems = recipe.ingredients.map((ingredient: string) => ({
         user_id: userId,
         recipe_id: savedRecipe.id,
-        ingredient,
+        ingredient: ingredient.trim(),
+        purchased: false, // ✅ ensures consistent schema
       }));
 
       const { error: listError } = await supabase
         .from("shopping_list")
         .insert(shoppingItems);
 
-      if (listError) console.error("Shopping list insert failed:", listError);
+      if (listError) {
+        console.error("❌ Shopping list insert failed:", listError);
+      } else {
+        console.log(`🛒 Added ${shoppingItems.length} ingredients to shopping_list`);
+      }
     }
 
     return new Response(JSON.stringify({ recipe: savedRecipe }), {
