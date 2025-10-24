@@ -26,7 +26,6 @@ serve(async (req) => {
     const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Get user profile preferences
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_vegetarian, cuisines")
@@ -41,7 +40,6 @@ serve(async (req) => {
     const systemPrompt = `You are Sousa, a friendly meal planning assistant. Create structured recipes that are ${dietaryInfo} ${cuisineInfo}.
 Always return recipes with clear ingredients and step-by-step instructions.`;
 
-    // Ask AI to generate a recipe
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -93,7 +91,7 @@ Always return recipes with clear ingredients and step-by-step instructions.`;
 
     const recipe = JSON.parse(toolCall.function.arguments);
 
-    // Save recipe
+    // ✅ Save recipe
     const { data: savedRecipe, error: saveError } = await supabase
       .from("recipes")
       .insert({
@@ -109,25 +107,29 @@ Always return recipes with clear ingredients and step-by-step instructions.`;
 
     if (saveError) throw saveError;
 
-    // Add to meal_plan
+    // ✅ Add to meal_plan (Dinner for today)
     const today = new Date().toISOString().split("T")[0];
-    const { error: planError } = await supabase.from("meal_plan").insert({
+    await supabase.from("meal_plan").insert({
       user_id: userId,
       date: today,
       meal_type: "Dinner",
       recipe_id: savedRecipe.id,
     });
-    if (planError) console.error("Meal plan insert failed:", planError);
 
-    // Add ingredients to shopping_list
-    const shoppingItems = recipe.ingredients.map((i: string) => ({
-      user_id: userId,
-      recipe_id: savedRecipe.id,
-      ingredient: i,
-    }));
+    // ✅ Add to shopping_list (one row per ingredient)
+    if (recipe.ingredients?.length > 0) {
+      const shoppingItems = recipe.ingredients.map((ingredient: string) => ({
+        user_id: userId,
+        recipe_id: savedRecipe.id,
+        ingredient,
+      }));
 
-    const { error: listError } = await supabase.from("shopping_list").insert(shoppingItems);
-    if (listError) console.error("Shopping list insert failed:", listError);
+      const { error: listError } = await supabase
+        .from("shopping_list")
+        .insert(shoppingItems);
+
+      if (listError) console.error("Shopping list insert failed:", listError);
+    }
 
     return new Response(JSON.stringify({ recipe: savedRecipe }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
