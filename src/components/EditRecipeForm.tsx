@@ -61,19 +61,36 @@ export function EditRecipeForm({
       toast.message("Click Delete again to confirm");
       return;
     }
-
+  
     setIsDeleting(true);
+  
+    // Delete related records first
+    const { error: listError } = await supabase
+      .from("shopping_list")
+      .delete()
+      .eq("recipe_id", recipe.id);
+    if (listError) console.warn("Could not delete shopping list items:", listError);
+  
+    const { error: planError } = await supabase
+      .from("meal_plan")
+      .delete()
+      .eq("recipe_id", recipe.id);
+    if (planError) console.warn("Could not delete meal plan entries:", planError);
+  
+    // Then delete the recipe itself
     const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
+  
     setIsDeleting(false);
-
+  
     if (error) {
       console.error(error);
       toast.error("Failed to delete recipe");
     } else {
-      toast.success("Recipe deleted");
+      toast.success("Recipe and related items deleted");
       window.history.back();
     }
   };
+
 
   return (
     <div className="mt-4 space-y-4 border-t border-border pt-4">
