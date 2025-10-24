@@ -20,6 +20,7 @@ export default function ShoppingCartPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🧭 Fetch list
   useEffect(() => {
     const fetchItems = async () => {
       if (!user) return;
@@ -37,22 +38,58 @@ export default function ShoppingCartPage() {
     fetchItems();
   }, [user]);
 
+  // 🧩 Toggle purchased + add to pantry
   const togglePurchased = async (id: string, purchased: boolean) => {
-    const { error } = await supabase
+    const { data: item } = await supabase
+      .from("shopping_list")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (!item) return;
+
+    // 1️⃣ Update purchased status
+    const { error: updateError } = await supabase
       .from("shopping_list")
       .update({ purchased: !purchased })
       .eq("id", id);
 
-    if (error) toast.error("Failed to update item");
-    else {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, purchased: !purchased } : item
-        )
-      );
+    if (updateError) {
+      toast.error("Failed to update item");
+      return;
     }
+
+    // 2️⃣ If purchased = true, move to pantry
+    if (!purchased) {
+      const pantryItem = {
+        user_id: user?.id,
+        item_name: item.ingredient,
+        category: "Pantry",
+        status: "Fresh",
+        purchased_at: new Date().toISOString(),
+      };
+
+      const { error: insertError } = await supabase
+        .from("pantry")
+        .insert([pantryItem]);
+
+      if (insertError) {
+        console.error(insertError);
+        toast.error("Failed to add to pantry");
+      } else {
+        toast.success(`Added "${item.ingredient}" to your pantry`);
+      }
+    }
+
+    // 3️⃣ Update local UI
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, purchased: !purchased } : i
+      )
+    );
   };
 
+  // 🧹 Clear purchased items
   const clearPurchased = async () => {
     const { error } = await supabase
       .from("shopping_list")
@@ -70,6 +107,7 @@ export default function ShoppingCartPage() {
   return (
     <MobileLayout>
       <div className="p-6 space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingCart className="w-6 h-6 text-primary" />
@@ -88,6 +126,7 @@ export default function ShoppingCartPage() {
           )}
         </div>
 
+        {/* List */}
         {loading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
