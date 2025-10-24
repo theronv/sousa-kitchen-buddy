@@ -10,7 +10,7 @@ import MealPlanner from "./pages/MealPlanner";
 import Pantry from "./pages/Pantry";
 import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
-import RecipeDetail from "./pages/RecipeDetail";
+import RecipeDetail from "./pages/RecipeDetail"; // ✅ Added import
 
 const queryClient = new QueryClient();
 
@@ -27,7 +27,11 @@ const App = () => (
           <Route path="/planner" element={<MealPlanner />} />
           <Route path="/pantry" element={<Pantry />} />
           <Route path="/recipes" element={<Recipes />} />
+
+          {/* ✅ New route for individual recipe details */}
           <Route path="/recipe/:id" element={<RecipeDetail />} />
+
+          {/* ⚠️ Keep this last — catch-all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
