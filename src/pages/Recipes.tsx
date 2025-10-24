@@ -1,3 +1,4 @@
+// src/pages/Recipes.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/Layout/MobileLayout";
@@ -5,16 +6,16 @@ import { Card } from "@/components/ui/card";
 import { AskSousaDialog } from "@/components/AskSousaDialog";
 import { RecipeCard } from "@/components/RecipeCard";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, ChefHat, Loader2 } from "lucide-react";
+import { ChefHat, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Recipe {
   id: string;
   title: string;
-  prep_time: string;
+  prep_time: string | null;
   cuisine: string | null;
-  ingredients: string[];
-  instructions: string[];
+  ingredients: string[] | null;
+  instructions: string[] | null;
 }
 
 const Recipes = () => {
@@ -22,7 +23,7 @@ const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  /** Fetch all recipes for current user */
+  /** Fetch recipes for current user */
   const fetchRecipes = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,13 +39,14 @@ const Recipes = () => {
         .order("created_at", { ascending: false });
 
       if (error) {
+        console.error(error);
         toast.error("Failed to load recipes");
         return;
       }
 
       setRecipes(data || []);
-    } catch (error) {
-      console.error("Error fetching recipes:", error);
+    } catch (err) {
+      console.error("Error fetching recipes:", err);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +54,7 @@ const Recipes = () => {
 
   useEffect(() => {
     fetchRecipes();
-  }, [navigate]);
+  }, []);
 
   return (
     <MobileLayout>
@@ -62,7 +64,7 @@ const Recipes = () => {
           <h1 className="text-2xl font-bold text-foreground">Recipe Library</h1>
         </div>
 
-        {/* Ask Sousa Card */}
+        {/* Ask Sousa card */}
         <Card className="p-6 shadow-card bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -78,7 +80,7 @@ const Recipes = () => {
           </div>
         </Card>
 
-        {/* Recipe List */}
+        {/* Recipe list */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Your Recipes</h2>
 
@@ -97,8 +99,12 @@ const Recipes = () => {
             recipes.map((recipe) => (
               <RecipeCard
                 key={recipe.id}
-                recipe={recipe}
-                onDelete={fetchRecipes} // ✅ refresh list when deleted
+                recipe={{
+                  ...recipe,
+                  ingredients: recipe.ingredients || [],
+                  instructions: recipe.instructions || [],
+                }}
+                onDelete={fetchRecipes} // ✅ refresh after delete
               />
             ))
           )}
