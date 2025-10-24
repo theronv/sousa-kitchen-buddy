@@ -17,25 +17,61 @@ export function EditRecipeForm({
   const [ingredients, setIngredients] = useState(recipe.ingredients.join("\n"));
   const [instructions, setInstructions] = useState(recipe.instructions.join("\n"));
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
+  /** Save updated recipe **/
   const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Recipe title cannot be empty");
+      return;
+    }
+
     setIsSaving(true);
     const { error } = await supabase
       .from("recipes")
       .update({
-        title,
-        ingredients: ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
-        instructions: instructions.split("\n").map((s) => s.trim()).filter(Boolean),
+        title: title.trim(),
+        ingredients: ingredients
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        instructions: instructions
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
       })
       .eq("id", recipe.id);
 
     setIsSaving(false);
 
     if (error) {
+      console.error(error);
       toast.error("Failed to save recipe");
     } else {
       toast.success("Recipe updated!");
       onClose();
+    }
+  };
+
+  /** Delete recipe with confirmation **/
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      toast.message("Click Delete again to confirm");
+      return;
+    }
+
+    setIsDeleting(true);
+    const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
+    setIsDeleting(false);
+
+    if (error) {
+      console.error(error);
+      toast.error("Failed to delete recipe");
+    } else {
+      toast.success("Recipe deleted");
+      window.history.back();
     }
   };
 
@@ -45,6 +81,7 @@ export function EditRecipeForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Recipe title"
+        className="text-base font-medium"
       />
 
       <Textarea
@@ -52,6 +89,7 @@ export function EditRecipeForm({
         onChange={(e) => setIngredients(e.target.value)}
         rows={6}
         placeholder="List ingredients, one per line"
+        className="resize-none"
       />
 
       <Textarea
@@ -59,14 +97,30 @@ export function EditRecipeForm({
         onChange={(e) => setInstructions(e.target.value)}
         rows={6}
         placeholder="List steps, one per line"
+        className="resize-none"
       />
 
-      <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={isSaving} className="flex-1">
-          {isSaving ? "Saving..." : "Save Changes"}
-        </Button>
-        <Button variant="outline" onClick={onClose}>
-          Cancel
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+        <div className="flex flex-1 gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 font-medium"
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+
+        <Button
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="sm:w-auto"
+        >
+          {isDeleting ? "Deleting..." : confirmDelete ? "Confirm Delete" : "Delete"}
         </Button>
       </div>
     </div>
