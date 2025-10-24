@@ -70,14 +70,31 @@ export default function RecipeDetail() {
         </Card>
 
         <div className="flex justify-end">
-          <Button
-            variant="default"
-            onClick={() => setIsEditing(true)}
-            className="flex items-center gap-2"
-          >
-            <Pencil className="w-4 h-4" />
-            Edit Recipe
-          </Button>
+         <Button
+          variant="destructive"
+          onClick={async () => {
+            if (!confirm("Are you sure you want to delete this recipe? This will also remove it from your meal plan and shopping list.")) {
+              return;
+            }
+        
+            // Delete related data first (shopping_list + meal_plan)
+            await supabase.from("shopping_list").delete().eq("recipe_id", recipe.id);
+            await supabase.from("meal_plan").delete().eq("recipe_id", recipe.id);
+        
+            // Delete the recipe
+            const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
+        
+            if (error) {
+              alert("Failed to delete recipe: " + error.message);
+            } else {
+              alert("Recipe deleted successfully.");
+              navigate("/recipes");
+            }
+          }}
+          className="flex items-center gap-2 ml-2"
+        >
+          Delete
+        </Button>
         </div>
 
         {isEditing && (
