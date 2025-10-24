@@ -22,9 +22,9 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); // ✅ fixed variable reference
+    const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
+    const SUPABASE_KEY = Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY")!;
+    const supabase = createClient(VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY); // ✅ fixed variable reference
 
     // 🔹 Load user preferences
     const { data: profile } = await supabase
