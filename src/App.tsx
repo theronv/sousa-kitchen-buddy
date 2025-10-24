@@ -10,6 +10,7 @@ import MealPlanner from "./pages/MealPlanner";
 import Pantry from "./pages/Pantry";
 import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
+import RecipeDetail from "./pages/RecipeDetail";
 
 const queryClient = new QueryClient();
 
