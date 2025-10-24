@@ -27,7 +27,7 @@ const App = () => (
           <Route path="/planner" element={<MealPlanner />} />
           <Route path="/pantry" element={<Pantry />} />
           <Route path="/recipes" element={<Recipes />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/recipe/:id" element={<RecipeDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
