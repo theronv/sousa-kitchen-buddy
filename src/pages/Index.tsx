@@ -1,16 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/Layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChefHat, Calendar, Package, Sparkles, LogOut } from "lucide-react";
 import { AskSousaDialog } from "@/components/AskSousaDialog";
+import { RecipeCard } from "@/components/RecipeCard";
+import type { Recipe } from "@/types/recipe";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-meal-planning.jpg";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, isLoading, signOut } = useAuth();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -18,9 +22,31 @@ const Index = () => {
     }
   }, [user, isLoading, navigate]);
 
-  if (isLoading) {
-    return null;
-  }
+  // Fetch user's saved recipes
+  useEffect(() => {
+    const fetchRecipes = async () => {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading recipes:", error);
+      } else if (data) {
+        setRecipes(data);
+      }
+    };
+
+    fetchRecipes();
+  }, [user]);
+
+  const handleRecipeGenerated = (recipe: Recipe) => {
+    setRecipes((prev) => [recipe, ...prev]);
+  };
+
+  if (isLoading) return null;
 
   return (
     <MobileLayout>
@@ -34,8 +60,12 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <h1 className="text-3xl font-bold text-foreground mb-1">Welcome to Sousa</h1>
-            <p className="text-sm text-muted-foreground">Your personal meal planning assistant</p>
+            <h1 className="text-3xl font-bold text-foreground mb-1">
+              Welcome to Sousa
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Your personal meal planning assistant
+            </p>
           </div>
           <Button
             variant="ghost"
@@ -56,14 +86,18 @@ const Index = () => {
                   <Calendar className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-foreground">Plan Week</h3>
-                  <p className="text-xs text-muted-foreground">Generate meals</p>
+                  <h3 className="font-semibold text-sm text-foreground">
+                    Plan Week
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Generate meals
+                  </p>
                 </div>
               </div>
             </Card>
 
             <div className="flex justify-center">
-              <AskSousaDialog />
+              <AskSousaDialog onRecipeGenerated={handleRecipeGenerated} />
             </div>
           </div>
 
@@ -72,9 +106,12 @@ const Index = () => {
             <div className="flex items-start gap-3">
               <Sparkles className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
               <div>
-                <h2 className="font-semibold text-foreground mb-1">Smart Planning</h2>
+                <h2 className="font-semibold text-foreground mb-1">
+                  Smart Planning
+                </h2>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Let AI create personalized meal plans based on your preferences and what's in your pantry
+                  Let AI create personalized meal plans based on your
+                  preferences and what's in your pantry.
                 </p>
                 <Button size="sm" className="w-full gap-2">
                   <Sparkles className="w-4 h-4" />
@@ -86,18 +123,24 @@ const Index = () => {
 
           {/* Status Cards */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">Quick Overview</h2>
-            
+            <h2 className="text-sm font-semibold text-muted-foreground">
+              Quick Overview
+            </h2>
+
             <Card className="p-4 shadow-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Package className="w-5 h-5 text-primary" />
                   <div>
                     <p className="font-medium text-foreground">Pantry Status</p>
-                    <p className="text-xs text-muted-foreground">12 items tracked</p>
+                    <p className="text-xs text-muted-foreground">
+                      12 items tracked
+                    </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm">View</Button>
+                <Button variant="ghost" size="sm">
+                  View
+                </Button>
               </div>
             </Card>
 
@@ -107,13 +150,31 @@ const Index = () => {
                   <Calendar className="w-5 h-5 text-primary" />
                   <div>
                     <p className="font-medium text-foreground">This Week</p>
-                    <p className="text-xs text-muted-foreground">5 meals planned</p>
+                    <p className="text-xs text-muted-foreground">
+                      5 meals planned
+                    </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm">View</Button>
+                <Button variant="ghost" size="sm">
+                  View
+                </Button>
               </div>
             </Card>
           </div>
+
+          {/* Generated Recipes Section */}
+          {recipes.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground">
+                Generated Recipes
+              </h2>
+              <div className="grid gap-4">
+                {recipes.map((recipe) => (
+                  <RecipeCard key={recipe.id} recipe={recipe} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MobileLayout>
