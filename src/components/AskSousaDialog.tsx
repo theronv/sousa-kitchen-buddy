@@ -54,10 +54,10 @@ export const AskSousaDialog = ({ onRecipeGenerated }: AskSousaDialogProps) => {
       }
 
       if (data?.recipe) {
-        toast.success("Recipe created! Check your recipe library.");
+        toast.success(`"${data.recipe.title}" created!`);
         setPrompt("");
         setOpen(false);
-        onRecipeGenerated?.();
+        onRecipeGenerated?.(data.recipe);
       }
     } catch (error) {
       console.error("Error generating recipe:", error);
