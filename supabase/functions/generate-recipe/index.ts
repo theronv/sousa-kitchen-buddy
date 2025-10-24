@@ -24,7 +24,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const supabaseUrl = Deno.env.get("supabase_url")!;
     const supabaseKey = Deno.env.get("supabase_service_role_key")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createClient(supabase_url, supabase_service_role_key);
 
     const { data: profile } = await supabase
       .from("profiles")
