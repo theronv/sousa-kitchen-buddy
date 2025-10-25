@@ -149,12 +149,15 @@ export default function ShoppingCartPage() {
 
     // Add all items to pantry
     const pantryInserts = unpurchasedItems.map((item) => ({
-      user_id: user.id,
-      item_name: item.ingredient,
-      category: item.item_type,
-      status: "Fresh",
-      purchased_at: new Date().toISOString(),
-    }));
+    user_id: user.id,
+    item_name: item.ingredient, // ✅ ensure field matches pantry DB
+    category: item.item_type || "Pantry",
+    quantity: "1 unit",
+    expiration_date: item.expiration_date || null,
+    status: "good",
+    notes: null,
+    created_at: new Date().toISOString(),
+  }));
 
     const { error: insertError } = await supabase
       .from("pantry")
