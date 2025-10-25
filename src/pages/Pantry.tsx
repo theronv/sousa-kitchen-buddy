@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { AddPantryItemDialog } from "@/components/AddPantryItemDialog";
 
 interface PantryItem {
   id: string;
@@ -65,19 +66,45 @@ export default function Pantry() {
     }
   };
 
+  /** ✅ Move Pantry Item to Shopping Cart */
   const handleMoveToCart = async (item: PantryItem) => {
     if (!user) return;
+
+    // Check if item already exists in shopping_list
+    const { data: existing, error: checkError } = await supabase
+      .from("shopping_list")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("ingredient", item.name)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Cart check failed:", checkError);
+      toast.error("Error checking cart");
+      return;
+    }
+
+    if (existing) {
+      toast.info(`${item.name} is already in your shopping cart`);
+      return;
+    }
+
+    // Insert into shopping_list
     const { error } = await supabase.from("shopping_list").insert({
       user_id: user.id,
       ingredient: item.name,
+      purchased: false,
     });
 
     if (error) {
+      console.error("Move to cart failed:", error);
       toast.error("Failed to move to cart");
-      console.error(error);
     } else {
       toast.success(`${item.name} moved to shopping cart`);
-      await handleDelete(item.id);
+      // Optionally delete from pantry
+      const { error: deleteError } = await supabase.from("pantry").delete().eq("id", item.id);
+      if (deleteError) console.error("Failed to remove from pantry:", deleteError);
+      else setItems((prev) => prev.filter((i) => i.id !== item.id));
     }
   };
 
@@ -86,14 +113,13 @@ export default function Pantry() {
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Pantry</h1>
-          <Button size="sm" className="gap-2" onClick={() => toast.info("Add item modal coming soon!")}>
-            <Plus className="w-4 h-4" />
-            Add Item
-          </Button>
+          <AddPantryItemDialog onItemAdded={fetchPantry} />
         </div>
 
+        {/* Smart Alert for expiring/low items */}
         {expiringSoon.length > 0 && (
           <Card className="p-4 bg-accent/10 border-accent/20">
             <div className="flex items-start gap-3">
@@ -108,6 +134,7 @@ export default function Pantry() {
           </Card>
         )}
 
+        {/* Main Content */}
         <div className="space-y-4">
           {loading ? (
             <Card className="p-6 text-center text-muted-foreground">Loading pantry...</Card>
