@@ -2,17 +2,19 @@ import { useState } from "react";
 import { MobileLayout } from "@/components/Layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, CalendarDays, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useScheduledMeals, ScheduledMeal } from "@/hooks/useScheduledMeals";
 import { WeekView } from "@/components/MealPlanner/WeekView";
 import { DayView } from "@/components/MealPlanner/DayView";
 import { AddMealDialog } from "@/components/MealPlanner/AddMealDialog";
+import { PlanWeekDialog } from "@/components/MealPlanner/PlanWeekDialog";
 import { DragEndEvent } from "@dnd-kit/core";
 
 const MealPlanner = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [planWeekOpen, setPlanWeekOpen] = useState(false);
   const [editingMeal, setEditingMeal] = useState<ScheduledMeal | null>(null);
   const [dialogDefaultDate, setDialogDefaultDate] = useState<string>();
   const [dialogDefaultMealType, setDialogDefaultMealType] = useState<"breakfast" | "lunch" | "dinner">();
@@ -113,9 +115,15 @@ const MealPlanner = () => {
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Meal Planner</h1>
-          <Button variant="outline" size="sm" onClick={handleToday}>
-            Today
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={() => setPlanWeekOpen(true)} className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Plan Week
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleToday}>
+              Today
+            </Button>
+          </div>
         </div>
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "week" | "day")}>
@@ -179,6 +187,15 @@ const MealPlanner = () => {
         editingMeal={editingMeal}
         defaultDate={dialogDefaultDate}
         defaultMealType={dialogDefaultMealType}
+      />
+
+      <PlanWeekDialog
+        open={planWeekOpen}
+        onOpenChange={setPlanWeekOpen}
+        onComplete={() => {
+          // Refresh meals after planning
+        }}
+        weekStart={weekStart}
       />
     </MobileLayout>
   );

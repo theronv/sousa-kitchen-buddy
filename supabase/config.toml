@@ -2,3 +2,6 @@ project_id = "yksscbqdkebodilcehpz"
 
 [functions.generate-recipe]
 verify_jwt = false
+
+[functions.plan-week]
+verify_jwt = true

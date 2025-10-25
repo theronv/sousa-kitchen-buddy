@@ -151,24 +151,33 @@ export type Database = {
       shopping_list: {
         Row: {
           created_at: string
+          expiration_date: string | null
           id: string
           ingredient: string
+          is_cold: boolean | null
+          item_type: string | null
           purchased: boolean
           recipe_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          expiration_date?: string | null
           id?: string
           ingredient: string
+          is_cold?: boolean | null
+          item_type?: string | null
           purchased?: boolean
           recipe_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          expiration_date?: string | null
           id?: string
           ingredient?: string
+          is_cold?: boolean | null
+          item_type?: string | null
           purchased?: boolean
           recipe_id?: string | null
           user_id?: string
