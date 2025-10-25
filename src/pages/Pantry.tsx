@@ -1,180 +1,356 @@
-// src/components/EditPantryItemDialog.tsx
-import { ReactNode, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+// src/pages/Pantry.tsx
+import { useEffect, useMemo, useState } from "react";
+import { MobileLayout } from "@/components/Layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import { Plus, ChevronDown, ChevronRight, Trash2, ShoppingCart, Edit2, AlertCircle, SlidersHorizontal } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { AddPantryItemDialog } from "@/components/AddPantryItemDialog";
+import { EditPantryItemDialog } from "@/components/EditPantryItemDialog";
 
 type PantryStatus = "good" | "low" | "expiring";
 
 interface PantryItem {
   id: string;
+  user_id?: string;
   name: string;
   category: string;
   status: PantryStatus;
   quantity?: string | null;
-  expires_on?: string | null; // ISO
+  expires_on?: string | null; // ISO date string in DB
   cold_item?: boolean | null;
+  created_at?: string;
 }
 
-export function EditPantryItemDialog({
-  item,
-  onUpdated,
-  children,
-}: {
-  item: PantryItem;
-  onUpdated: (updated: PantryItem) => void;
-  children: ReactNode; // trigger button
-}) {
-  const [open, setOpen] = useState(false);
+type SortKey = "newest" | "name-asc" | "expires-soon";
 
-  // Local form state seeded from item
-  const [name, setName] = useState(item.name);
-  const [category, setCategory] = useState(item.category || "Pantry");
-  const [status, setStatus] = useState<PantryStatus>(item.status);
-  const [quantity, setQuantity] = useState(item.quantity || "");
-  const [expiresOn, setExpiresOn] = useState(
-    // Convert ISO to yyyy-mm-dd for <input type="date" />
-    item.expires_on ? new Date(item.expires_on).toISOString().slice(0, 10) : ""
+// Small helper: safely parse a date for sorting
+const toDate = (d?: string | null) => (d ? new Date(d) : undefined);
+
+// Badge helper
+const StatusBadge = ({ status }: { status: PantryStatus }) => {
+  if (status === "good") return null;
+  const isLow = status === "low";
+  return (
+    <Badge variant={isLow ? "secondary" : "destructive"} className="text-xs">
+      {isLow ? "Low" : "Expiring"}
+    </Badge>
   );
-  const [cold, setCold] = useState<boolean>(!!item.cold_item);
-  const [saving, setSaving] = useState(false);
+};
 
-  const reset = () => {
-    setName(item.name);
-    setCategory(item.category || "Pantry");
-    setStatus(item.status);
-    setQuantity(item.quantity || "");
-    setExpiresOn(item.expires_on ? new Date(item.expires_on).toISOString().slice(0, 10) : "");
-    setCold(!!item.cold_item);
-  };
+export default function Pantry() {
+  const { user } = useAuth();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [items, setItems] = useState<PantryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const onOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (next) reset();
-  };
+  // Filters/Sort UI
+  const [filterCategory, setFilterCategory] = useState<string>("All");
+  const [filterStatus, setFilterStatus] = useState<"All" | PantryStatus>("All");
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error("Please enter an item name");
-      return;
-    }
-    setSaving(true);
-
-    // Normalize date: empty -> null, else ISO string
-    const expiresISO = expiresOn ? new Date(expiresOn).toISOString() : null;
-
-    const updatePayload = {
-      name: name.trim(),
-      category,
-      status,
-      quantity: quantity || null,
-      expires_on: expiresISO,
-      cold_item: cold,
-    };
-
+  /** Fetch Pantry items **/
+  const fetchPantry = async () => {
+    if (!user) return;
+    setLoading(true);
     const { data, error } = await supabase
       .from("pantry")
-      .update(updatePayload)
-      .eq("id", item.id)
-      .select()
-      .maybeSingle();
-
-    setSaving(false);
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
     if (error) {
+      toast.error("Failed to load pantry items");
       console.error(error);
-      toast.error("Failed to update item");
+      setLoading(false);
       return;
     }
 
-    toast.success("Pantry item updated");
-    // Inform parent so it can update list without re-fetch
-    onUpdated({ ...(item as PantryItem), ...(data as PantryItem) });
-    setOpen(false);
+    setItems((data as PantryItem[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchPantry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Unique categories derived from current data
+  const categories = useMemo(() => {
+    const set = new Set(items.map((i) => i.category || "Uncategorized"));
+    return ["All", ...Array.from(set)];
+  }, [items]);
+
+  // Derived counts for smart alert
+  const expiringSoon = items.filter((i) => i.status === "expiring" || i.status === "low");
+
+  // Apply filters + sorting once, then split by category for rendering
+  const filteredSorted = useMemo(() => {
+    let list = [...items];
+
+    if (filterCategory !== "All") {
+      list = list.filter((i) => (i.category || "Uncategorized") === filterCategory);
+    }
+    if (filterStatus !== "All") {
+      list = list.filter((i) => i.status === filterStatus);
+    }
+
+    // Sorting
+    list.sort((a, b) => {
+      if (sortKey === "name-asc") {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortKey === "expires-soon") {
+        const ad = toDate(a.expires_on)?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bd = toDate(b.expires_on)?.getTime() ?? Number.POSITIVE_INFINITY;
+        return ad - bd; // earliest expiration first
+      }
+      // "newest" by created_at desc (already fetched desc, but ensure stable)
+      const at = toDate(a.created_at)?.getTime() ?? 0;
+      const bt = toDate(b.created_at)?.getTime() ?? 0;
+      return bt - at;
+    });
+
+    return list;
+  }, [items, filterCategory, filterStatus, sortKey]);
+
+  // Categories present after filtering (for section rendering)
+  const visibleCategories = useMemo(() => {
+    const set = new Set(
+      filteredSorted.map((i) => (i.category && i.category.length ? i.category : "Uncategorized"))
+    );
+    return Array.from(set);
+  }, [filteredSorted]);
+
+  const toggleCategory = (category: string) => {
+    setExpanded((prev) => ({ ...prev, [category]: !prev[category] }));
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("pantry").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete item");
+      console.error(error);
+    } else {
+      toast.success("Item deleted");
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    }
+  };
+
+  /** ✅ Move Pantry Item to Shopping Cart (prevents duplicates, removes from pantry) */
+  const handleMoveToCart = async (item: PantryItem) => {
+    if (!user) return;
+
+    const { data: existing, error: checkError } = await supabase
+      .from("shopping_list")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("ingredient", item.name)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Cart check failed:", checkError);
+      toast.error("Error checking cart");
+      return;
+    }
+
+    if (existing) {
+      toast.info(`${item.name} is already in your shopping cart`);
+      return;
+    }
+
+    const { error } = await supabase.from("shopping_list").insert({
+      user_id: user.id,
+      ingredient: item.name,
+      purchased: false,
+    });
+
+    if (error) {
+      console.error("Move to cart failed:", error);
+      toast.error("Failed to move to cart");
+    } else {
+      toast.success(`${item.name} moved to shopping cart`);
+      // Remove from pantry after moving
+      const { error: deleteError } = await supabase.from("pantry").delete().eq("id", item.id);
+      if (deleteError) console.error("Failed to remove from pantry:", deleteError);
+      else setItems((prev) => prev.filter((i) => i.id !== item.id));
+    }
+  };
+
+  // Update a single item locally after edit (optimistic UI)
+  const applyLocalUpdate = (updated: PantryItem) => {
+    setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)));
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Pantry Item</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <Input
-            placeholder="Item name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-
-          {/* Category */}
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Produce">Produce</SelectItem>
-              <SelectItem value="Dairy">Dairy</SelectItem>
-              <SelectItem value="Pantry">Pantry</SelectItem>
-              <SelectItem value="Bakery">Bakery</SelectItem>
-              <SelectItem value="Meat">Meat</SelectItem>
-              <SelectItem value="Frozen">Frozen</SelectItem>
-              <SelectItem value="Beverages">Beverages</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Status */}
-          <Select value={status} onValueChange={(v: PantryStatus) => setStatus(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="good">Good</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="expiring">Expiring</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Quantity */}
-          <Input
-            placeholder="Quantity (e.g., 2 packs, 500g)"
-            value={quantity || ""}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-
-          {/* Expiration */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Expiration date</span>
-            <Input
-              type="date"
-              value={expiresOn}
-              onChange={(e) => setExpiresOn(e.target.value)}
-            />
+    <MobileLayout>
+      <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-foreground">Pantry</h1>
+          <div className="flex items-center gap-2">
+            <AddPantryItemDialog onItemAdded={fetchPantry} />
           </div>
-
-          {/* Cold item */}
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={cold} onCheckedChange={(v: boolean) => setCold(!!v)} />
-            Cold item (refrigerated/frozen)
-          </label>
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {/* Smart Alert for expiring/low items */}
+        {expiringSoon.length > 0 && (
+          <Card className="p-4 bg-accent/10 border-accent/20">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Items need attention</p>
+                <p className="text-sm text-muted-foreground">
+                  {expiringSoon.length} item{expiringSoon.length > 1 ? "s" : ""} are running low or expiring soon
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Filters & Sort */}
+        <Card className="p-3">
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+              {/* Category Filter */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Category</span>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All</SelectItem>
+                    <SelectItem value="good">Good</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="expiring">Expiring</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sort */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Sort By</span>
+                <Select value={sortKey} onValueChange={(v: SortKey) => setSortKey(v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Newest" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+                    <SelectItem value="expires-soon">Expires Soon</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Main Content */}
+        <div className="space-y-4">
+          {loading ? (
+            <Card className="p-6 text-center text-muted-foreground">Loading pantry...</Card>
+          ) : filteredSorted.length === 0 ? (
+            <Card className="p-6 text-center text-muted-foreground">No pantry items match your filters.</Card>
+          ) : (
+            visibleCategories.map((category) => {
+              const categoryItems = filteredSorted.filter(
+                (i) => (i.category && i.category.length ? i.category : "Uncategorized") === category
+              );
+              if (categoryItems.length === 0) return null;
+
+              return (
+                <div key={category}>
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="flex items-center justify-between w-full mb-2"
+                  >
+                    <h2 className="text-sm font-semibold text-muted-foreground">{category}</h2>
+                    {expanded[category] ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {expanded[category] && (
+                    <div className="space-y-2">
+                      {categoryItems.map((item) => (
+                        <Card key={item.id} className="p-3 flex justify-between items-center">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">{item.name}</span>
+                            {item.quantity ? (
+                              <span className="text-xs text-muted-foreground">{item.quantity}</span>
+                            ) : null}
+                            {item.expires_on ? (
+                              <span className="text-xs text-muted-foreground">
+                                Expires on {new Date(item.expires_on).toLocaleDateString()}
+                              </span>
+                            ) : null}
+                            {item.cold_item ? (
+                              <span className="text-[10px] w-fit mt-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                Cold item
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={item.status} />
+                            {/* Edit opens modal dialog */}
+                            <EditPantryItemDialog
+                              item={item}
+                              onUpdated={(updated) => {
+                                applyLocalUpdate(updated);
+                                // optionally re-group if category changed
+                              }}
+                            >
+                              <Button size="icon" variant="ghost">
+                                <Edit2 className="w-4 h-4 text-muted-foreground" />
+                              </Button>
+                            </EditPantryItemDialog>
+
+                            {/* Move to Cart */}
+                            <Button size="icon" variant="ghost" onClick={() => handleMoveToCart(item)}>
+                              <ShoppingCart className="w-4 h-4 text-primary" />
+                            </Button>
+
+                            {/* Delete */}
+                            <Button size="icon" variant="ghost" onClick={() => handleDelete(item.id)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </MobileLayout>
   );
 }
