@@ -81,9 +81,17 @@ export default function Pantry() {
       return;
     }
 
-    setItems((data as PantryItem[]) || []);
-    setLoading(false);
-  };
+    setItems(
+  (data || []).map((d: any) => ({
+    id: d.id,
+    name: d.item_name,             // maps to your DB column
+    category: d.category,
+    status: d.status || "good",
+    quantity: d.quantity,
+    expires_on: d.expiration_date, // maps correctly
+    created_at: d.created_at,
+  }))
+);
 
   useEffect(() => {
     fetchPantry();
