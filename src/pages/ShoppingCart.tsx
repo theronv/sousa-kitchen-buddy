@@ -113,23 +113,23 @@ export default function ShoppingCartPage() {
     if (addToInventory) {
       const pantryItem = {
         user_id: user?.id,
-        item_name: itemToDelete.ingredient, // ✅ matches Supabase column
-        quantity: "1", // ✅ text field
+        item_name: itemToDelete.ingredient,
+        quantity: "1",
         category: itemToDelete.item_type || "Pantry",
-        purchased: new Date().toISOString(), // ✅ matches timestamptz
-        expiration_date: itemToDelete.expiration_date || null,
+        purchased: new Date().toISOString(), // works for timestamptz
+        expiration_date: itemToDelete.expiration_date
+          ? new Date(itemToDelete.expiration_date).toISOString().split("T")[0]
+          : null,
         status: "good",
         notes: null,
         created_at: new Date().toISOString(),
       };
-
-      const { error: insertError } = await supabase
-        .from("pantry")
-        .insert([pantryItem]);
-
+      
+      const { error: insertError } = await supabase.from("pantry").insert([pantryItem]);
+      
       if (insertError) {
-        console.error(insertError);
-        toast.error("Failed to add to pantry");
+        console.error("Insert failed:", insertError);
+        toast.error(`Failed to add to pantry: ${insertError.message}`);
         return;
       }
     }
