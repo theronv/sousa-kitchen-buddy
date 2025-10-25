@@ -100,12 +100,16 @@ export default function ShoppingCartPage() {
 
     if (addToInventory) {
       const pantryItem = {
-        user_id: user?.id,
-        item_name: itemToDelete.ingredient,
-        category: itemToDelete.item_type,
-        status: "Fresh",
-        purchased_at: new Date().toISOString(),
-      };
+      user_id: user?.id,
+      item_name: itemToDelete.ingredient, // ✅ matches DB column
+      category: itemToDelete.item_type || "Pantry",
+      quantity: "1 unit",
+      expiration_date: itemToDelete.expiration_date || null,
+      status: "good",
+      notes: null,
+      created_at: new Date().toISOString(),
+    };
+
 
       const { error: insertError } = await supabase
         .from("pantry")
@@ -158,6 +162,7 @@ export default function ShoppingCartPage() {
     notes: null,
     created_at: new Date().toISOString(),
   }));
+
 
     const { error: insertError } = await supabase
       .from("pantry")
