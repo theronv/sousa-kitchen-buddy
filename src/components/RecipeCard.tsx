@@ -34,7 +34,7 @@ export const RecipeCard = ({ recipe, onDelete }: RecipeCardProps) => {
     try {
       // Delete related records first
       await supabase.from("shopping_list").delete().eq("recipe_id", recipe.id);
-      await supabase.from("meal_plan").delete().eq("recipe_id", recipe.id);
+      await supabase.from("scheduled_meals").delete().eq("recipe_id", recipe.id);
 
       const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);
       if (error) throw error;

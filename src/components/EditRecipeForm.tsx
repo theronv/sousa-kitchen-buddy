@@ -72,10 +72,10 @@ export function EditRecipeForm({
     if (listError) console.warn("Could not delete shopping list items:", listError);
   
     const { error: planError } = await supabase
-      .from("meal_plan")
+      .from("scheduled_meals")
       .delete()
       .eq("recipe_id", recipe.id);
-    if (planError) console.warn("Could not delete meal plan entries:", planError);
+    if (planError) console.warn("Could not delete scheduled meals:", planError);
   
     // Then delete the recipe itself
     const { error } = await supabase.from("recipes").delete().eq("id", recipe.id);

@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
 
 interface AskSousaDialogProps {
-  onRecipeGenerated?: () => void;
+  onRecipeGenerated?: (recipe: any) => void;
 }
 
 export const AskSousaDialog = ({ onRecipeGenerated }: AskSousaDialogProps) => {

@@ -24,7 +24,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
     const SUPABASE_KEY = Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY")!;
-    const supabase = createClient(VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY); // ✅ fixed variable reference
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // 🔹 Load user preferences
     const { data: profile } = await supabase
@@ -109,12 +109,13 @@ Always return recipes with clear ingredients and step-by-step instructions.`;
 
     if (saveError) throw saveError;
 
-    // ✅ Add to meal_plan (Dinner for today)
+    // ✅ Add to scheduled_meals (Dinner for today)
     const today = new Date().toISOString().split("T")[0];
-    await supabase.from("meal_plan").insert({
+    await supabase.from("scheduled_meals").insert({
       user_id: userId,
-      date: today,
-      meal_type: "Dinner",
+      scheduled_date: today,
+      meal_type: "dinner",
+      meal_title: recipe.title,
       recipe_id: savedRecipe.id,
     });
 

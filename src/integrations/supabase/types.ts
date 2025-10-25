@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      pantry: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          item_name: string
+          purchased_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          item_name: string
+          purchased_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          purchased_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -111,6 +141,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scheduled_meals_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_list: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient: string
+          purchased: boolean
+          recipe_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient: string
+          purchased?: boolean
+          recipe_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient?: string
+          purchased?: boolean
+          recipe_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
             referencedRelation: "recipes"
