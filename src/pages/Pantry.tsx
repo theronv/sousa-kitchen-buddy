@@ -65,37 +65,37 @@ export default function Pantry() {
   const [sortKey, setSortKey] = useState<SortKey>("newest");
 
   /** Fetch Pantry items **/
-  const fetchPantry = async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("pantry")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+  /** Fetch Pantry items **/
+const fetchPantry = async () => {
+  if (!user) return;
+  setLoading(true);
+  const { data, error } = await supabase
+    .from("pantry")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      toast.error("Failed to load pantry items");
-      console.error(error);
-      setLoading(false);
-      return;
-    }
+  if (error) {
+    toast.error("Failed to load pantry items");
+    console.error(error);
+    setLoading(false);
+    return;
+  }
 
-    setItems(
-  (data || []).map((d: any) => ({
-    id: d.id,
-    name: d.item_name,             // maps to your DB column
-    category: d.category,
-    status: d.status || "good",
-    quantity: d.quantity,
-    expires_on: d.expiration_date, // maps correctly
-    created_at: d.created_at,
-  }))
-);
+  setItems(
+    (data || []).map((d: any) => ({
+      id: d.id,
+      name: d.item_name, // ✅ maps correctly to DB column
+      category: d.category,
+      status: d.status || "good",
+      quantity: d.quantity,
+      expires_on: d.expiration_date, // ✅ matches DB field
+      created_at: d.created_at,
+    }))
+  );
 
-  useEffect(() => {
-    fetchPantry();
-  }, [user]);
+  setLoading(false); // ✅ add this so the loading spinner stops
+};
 
   const categories = useMemo(() => {
     const set = new Set(items.map((i) => i.category || "Uncategorized"));
