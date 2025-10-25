@@ -1,11 +1,25 @@
-// src/pages/Pantry.tsx
 import { useEffect, useMemo, useState } from "react";
 import { MobileLayout } from "@/components/Layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, ChevronDown, ChevronRight, Trash2, ShoppingCart, Edit2, AlertCircle, SlidersHorizontal } from "lucide-react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  ShoppingCart,
+  Edit2,
+  AlertCircle,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,17 +35,15 @@ interface PantryItem {
   category: string;
   status: PantryStatus;
   quantity?: string | null;
-  expires_on?: string | null; // ISO date string in DB
+  expires_on?: string | null; // ISO date string
   cold_item?: boolean | null;
   created_at?: string;
 }
 
 type SortKey = "newest" | "name-asc" | "expires-soon";
 
-// Small helper: safely parse a date for sorting
 const toDate = (d?: string | null) => (d ? new Date(d) : undefined);
 
-// Badge helper
 const StatusBadge = ({ status }: { status: PantryStatus }) => {
   if (status === "good") return null;
   const isLow = status === "low";
@@ -48,7 +60,6 @@ export default function Pantry() {
   const [items, setItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters/Sort UI
   const [filterCategory, setFilterCategory] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<"All" | PantryStatus>("All");
   const [sortKey, setSortKey] = useState<SortKey>("newest");
@@ -76,40 +87,36 @@ export default function Pantry() {
 
   useEffect(() => {
     fetchPantry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Unique categories derived from current data
   const categories = useMemo(() => {
     const set = new Set(items.map((i) => i.category || "Uncategorized"));
     return ["All", ...Array.from(set)];
   }, [items]);
 
-  // Derived counts for smart alert
-  const expiringSoon = items.filter((i) => i.status === "expiring" || i.status === "low");
+  const expiringSoon = items.filter(
+    (i) => i.status === "expiring" || i.status === "low"
+  );
 
-  // Apply filters + sorting once, then split by category for rendering
   const filteredSorted = useMemo(() => {
     let list = [...items];
 
     if (filterCategory !== "All") {
-      list = list.filter((i) => (i.category || "Uncategorized") === filterCategory);
+      list = list.filter(
+        (i) => (i.category || "Uncategorized") === filterCategory
+      );
     }
     if (filterStatus !== "All") {
       list = list.filter((i) => i.status === filterStatus);
     }
 
-    // Sorting
     list.sort((a, b) => {
-      if (sortKey === "name-asc") {
-        return a.name.localeCompare(b.name);
-      }
+      if (sortKey === "name-asc") return a.name.localeCompare(b.name);
       if (sortKey === "expires-soon") {
         const ad = toDate(a.expires_on)?.getTime() ?? Number.POSITIVE_INFINITY;
         const bd = toDate(b.expires_on)?.getTime() ?? Number.POSITIVE_INFINITY;
-        return ad - bd; // earliest expiration first
+        return ad - bd;
       }
-      // "newest" by created_at desc (already fetched desc, but ensure stable)
       const at = toDate(a.created_at)?.getTime() ?? 0;
       const bt = toDate(b.created_at)?.getTime() ?? 0;
       return bt - at;
@@ -118,17 +125,17 @@ export default function Pantry() {
     return list;
   }, [items, filterCategory, filterStatus, sortKey]);
 
-  // Categories present after filtering (for section rendering)
   const visibleCategories = useMemo(() => {
     const set = new Set(
-      filteredSorted.map((i) => (i.category && i.category.length ? i.category : "Uncategorized"))
+      filteredSorted.map(
+        (i) => (i.category && i.category.length ? i.category : "Uncategorized")
+      )
     );
     return Array.from(set);
   }, [filteredSorted]);
 
-  const toggleCategory = (category: string) => {
+  const toggleCategory = (category: string) =>
     setExpanded((prev) => ({ ...prev, [category]: !prev[category] }));
-  };
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("pantry").delete().eq("id", id);
@@ -141,7 +148,6 @@ export default function Pantry() {
     }
   };
 
-  /** ✅ Move Pantry Item to Shopping Cart (prevents duplicates, removes from pantry) */
   const handleMoveToCart = async (item: PantryItem) => {
     if (!user) return;
 
@@ -174,14 +180,15 @@ export default function Pantry() {
       toast.error("Failed to move to cart");
     } else {
       toast.success(`${item.name} moved to shopping cart`);
-      // Remove from pantry after moving
-      const { error: deleteError } = await supabase.from("pantry").delete().eq("id", item.id);
+      const { error: deleteError } = await supabase
+        .from("pantry")
+        .delete()
+        .eq("id", item.id);
       if (deleteError) console.error("Failed to remove from pantry:", deleteError);
       else setItems((prev) => prev.filter((i) => i.id !== item.id));
     }
   };
 
-  // Update a single item locally after edit (optimistic UI)
   const applyLocalUpdate = (updated: PantryItem) => {
     setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)));
   };
@@ -192,12 +199,10 @@ export default function Pantry() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Pantry</h1>
-          <div className="flex items-center gap-2">
-            <AddPantryItemDialog onItemAdded={fetchPantry} />
-          </div>
+          <AddPantryItemDialog onItemAdded={fetchPantry} />
         </div>
 
-        {/* Smart Alert for expiring/low items */}
+        {/* Smart Alert */}
         {expiringSoon.length > 0 && (
           <Card className="p-4 bg-accent/10 border-accent/20">
             <div className="flex items-start gap-3">
@@ -205,19 +210,19 @@ export default function Pantry() {
               <div>
                 <p className="font-medium text-foreground">Items need attention</p>
                 <p className="text-sm text-muted-foreground">
-                  {expiringSoon.length} item{expiringSoon.length > 1 ? "s" : ""} are running low or expiring soon
+                  {expiringSoon.length} item{expiringSoon.length > 1 ? "s" : ""} are running
+                  low or expiring soon
                 </p>
               </div>
             </div>
           </Card>
         )}
 
-        {/* Filters & Sort */}
+        {/* Filters */}
         <Card className="p-3">
           <div className="flex items-center gap-3">
             <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-              {/* Category Filter */}
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Category</span>
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -234,10 +239,12 @@ export default function Pantry() {
                 </Select>
               </div>
 
-              {/* Status Filter */}
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Status</span>
-                <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                <Select
+                  value={filterStatus}
+                  onValueChange={(v: any) => setFilterStatus(v)}
+                >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
@@ -250,7 +257,6 @@ export default function Pantry() {
                 </Select>
               </div>
 
-              {/* Sort */}
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Sort By</span>
                 <Select value={sortKey} onValueChange={(v: SortKey) => setSortKey(v)}>
@@ -273,11 +279,15 @@ export default function Pantry() {
           {loading ? (
             <Card className="p-6 text-center text-muted-foreground">Loading pantry...</Card>
           ) : filteredSorted.length === 0 ? (
-            <Card className="p-6 text-center text-muted-foreground">No pantry items match your filters.</Card>
+            <Card className="p-6 text-center text-muted-foreground">
+              No pantry items match your filters.
+            </Card>
           ) : (
             visibleCategories.map((category) => {
               const categoryItems = filteredSorted.filter(
-                (i) => (i.category && i.category.length ? i.category : "Uncategorized") === category
+                (i) =>
+                  (i.category && i.category.length ? i.category : "Uncategorized") ===
+                  category
               );
               if (categoryItems.length === 0) return null;
 
@@ -287,7 +297,9 @@ export default function Pantry() {
                     onClick={() => toggleCategory(category)}
                     className="flex items-center justify-between w-full mb-2"
                   >
-                    <h2 className="text-sm font-semibold text-muted-foreground">{category}</h2>
+                    <h2 className="text-sm font-semibold text-muted-foreground">
+                      {category}
+                    </h2>
                     {expanded[category] ? (
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     ) : (
@@ -296,48 +308,76 @@ export default function Pantry() {
                   </button>
 
                   {expanded[category] && (
-                    <div className="space-y-2">
+                    <div className="space-y-3 mt-1">
                       {categoryItems.map((item) => (
-                        <Card key={item.id} className="p-3 flex justify-between items-center">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-foreground">{item.name}</span>
-                            {item.quantity ? (
-                              <span className="text-xs text-muted-foreground">{item.quantity}</span>
-                            ) : null}
-                            {item.expires_on ? (
-                              <span className="text-xs text-muted-foreground">
-                                Expires on {new Date(item.expires_on).toLocaleDateString()}
+                        <Card
+                          key={item.id}
+                          className="flex items-center justify-between px-4 py-3 rounded-xl shadow-sm hover:shadow-md transition-all bg-card"
+                        >
+                          {/* Left: info */}
+                          <div className="flex flex-col min-w-0 flex-1 pr-3">
+                            <span className="font-medium text-foreground truncate">
+                              {item.name || "Unnamed Item"}
+                            </span>
+                            {item.quantity && (
+                              <span className="text-xs text-muted-foreground truncate">
+                                Quantity: {item.quantity}
                               </span>
-                            ) : null}
-                            {item.cold_item ? (
+                            )}
+                            {item.expires_on && (
+                              <span className="text-xs text-muted-foreground">
+                                Expires on{" "}
+                                {new Date(item.expires_on).toLocaleDateString()}
+                              </span>
+                            )}
+                            {item.cold_item && (
                               <span className="text-[10px] w-fit mt-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
                                 Cold item
                               </span>
-                            ) : null}
+                            )}
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={item.status} />
-                            {/* Edit opens modal dialog */}
+                          {/* Right: status + actions */}
+                          <div className="flex items-center flex-shrink-0 gap-2">
+                            {item.status && item.status !== "good" && (
+                              <Badge
+                                variant={
+                                  item.status === "low" ? "secondary" : "destructive"
+                                }
+                                className="text-xs px-2 py-0.5 whitespace-nowrap"
+                              >
+                                {item.status === "low" ? "Low" : "Expiring"}
+                              </Badge>
+                            )}
+
                             <EditPantryItemDialog
                               item={item}
-                              onUpdated={(updated) => {
-                                applyLocalUpdate(updated);
-                                // optionally re-group if category changed
-                              }}
+                              onUpdated={(updated) => applyLocalUpdate(updated)}
                             >
-                              <Button size="icon" variant="ghost">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="hover:bg-muted/50"
+                              >
                                 <Edit2 className="w-4 h-4 text-muted-foreground" />
                               </Button>
                             </EditPantryItemDialog>
 
-                            {/* Move to Cart */}
-                            <Button size="icon" variant="ghost" onClick={() => handleMoveToCart(item)}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="hover:bg-muted/50"
+                              onClick={() => handleMoveToCart(item)}
+                            >
                               <ShoppingCart className="w-4 h-4 text-primary" />
                             </Button>
 
-                            {/* Delete */}
-                            <Button size="icon" variant="ghost" onClick={() => handleDelete(item.id)}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="hover:bg-muted/50"
+                              onClick={() => handleDelete(item.id)}
+                            >
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
                           </div>
