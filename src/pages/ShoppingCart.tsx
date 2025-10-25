@@ -96,97 +96,97 @@ export default function ShoppingCartPage() {
   };
 
   const confirmDelete = async (addToInventory: boolean) => {
-    if (!itemToDelete) return;
+  if (!itemToDelete) return;
 
-    if (addToInventory) {
-      const pantryItem = {
+  if (addToInventory) {
+    const pantryItem = {
       user_id: user?.id,
-      item_name: itemToDelete.ingredient, // ✅ matches DB column
+      item_name: itemToDelete.ingredient, // ✅ matches Supabase column
       category: itemToDelete.item_type || "Pantry",
-      quantity: "1 unit",
+      quantity: "1", // ✅ plain string is safer
       expiration_date: itemToDelete.expiration_date || null,
       status: "good",
       notes: null,
       created_at: new Date().toISOString(),
     };
 
+    const { error: insertError } = await supabase
+      .from("pantry")
+      .insert([pantryItem]);
 
-      const { error: insertError } = await supabase
-        .from("pantry")
-        .insert([pantryItem]);
-
-      if (insertError) {
-        toast.error("Failed to add to pantry");
-        return;
-      }
-    }
-
-    const { error } = await supabase
-      .from("shopping_list")
-      .delete()
-      .eq("id", itemToDelete.id);
-
-    if (error) {
-      toast.error("Failed to remove item");
+    if (insertError) {
+      console.error(insertError);
+      toast.error("Failed to add to pantry");
       return;
     }
+  }
 
-    setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
-    toast.success(
-      addToInventory
-        ? `Moved "${itemToDelete.ingredient}" to pantry`
-        : "Item removed"
-    );
-    setDeleteDialogOpen(false);
-    setItemToDelete(null);
-  };
+  const { error } = await supabase
+    .from("shopping_list")
+    .delete()
+    .eq("id", itemToDelete.id);
+
+  if (error) {
+    toast.error("Failed to remove item");
+    return;
+  }
+
+  setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
+  toast.success(
+    addToInventory
+      ? `Moved "${itemToDelete.ingredient}" to pantry`
+      : "Item removed"
+  );
+  setDeleteDialogOpen(false);
+  setItemToDelete(null);
+};
+
 
   const markAllAsShopped = async () => {
-    if (!user) return;
+  if (!user) return;
 
-    const unpurchasedItems = items.filter((item) => !item.purchased);
-    
-    if (unpurchasedItems.length === 0) {
-      toast.info("No items to shop");
-      return;
-    }
+  const unpurchasedItems = items.filter((item) => !item.purchased);
 
-    // Add all items to pantry
-    const pantryInserts = unpurchasedItems.map((item) => ({
+  if (unpurchasedItems.length === 0) {
+    toast.info("No items to shop");
+    return;
+  }
+
+  const pantryInserts = unpurchasedItems.map((item) => ({
     user_id: user.id,
-    item_name: item.ingredient, // ✅ ensure field matches pantry DB
+    item_name: item.ingredient,
     category: item.item_type || "Pantry",
-    quantity: "1 unit",
+    quantity: "1",
     expiration_date: item.expiration_date || null,
     status: "good",
     notes: null,
     created_at: new Date().toISOString(),
   }));
 
+  const { error: insertError } = await supabase
+    .from("pantry")
+    .insert(pantryInserts);
 
-    const { error: insertError } = await supabase
-      .from("pantry")
-      .insert(pantryInserts);
+  if (insertError) {
+    console.error(insertError);
+    toast.error("Failed to add items to pantry");
+    return;
+  }
 
-    if (insertError) {
-      toast.error("Failed to add items to pantry");
-      return;
-    }
+  const { error: deleteError } = await supabase
+    .from("shopping_list")
+    .delete()
+    .eq("user_id", user.id);
 
-    // Delete all items from cart
-    const { error: deleteError } = await supabase
-      .from("shopping_list")
-      .delete()
-      .eq("user_id", user.id);
+  if (deleteError) {
+    console.error(deleteError);
+    toast.error("Failed to clear cart");
+    return;
+  }
 
-    if (deleteError) {
-      toast.error("Failed to clear cart");
-      return;
-    }
-
-    setItems([]);
-    toast.success(`Moved ${unpurchasedItems.length} items to pantry`);
-  };
+  setItems([]);
+  toast.success(`Moved ${unpurchasedItems.length} items to pantry`);
+};
 
   const groupedItems = items.reduce((acc, item) => {
     const type = item.item_type || "Other";
