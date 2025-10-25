@@ -116,17 +116,19 @@ export default function ShoppingCartPage() {
         item_name: itemToDelete.ingredient,
         quantity: "1",
         category: itemToDelete.item_type || "Pantry",
-        purchased: new Date().toISOString(), // works for timestamptz
-        expiration_date: itemToDelete.expiration_date
+        purchased: new Date().toISOString(),
+        expires_on: itemToDelete.expiration_date
           ? new Date(itemToDelete.expiration_date).toISOString().split("T")[0]
           : null,
         status: "good",
         notes: null,
         created_at: new Date().toISOString(),
       };
-      
-      const { error: insertError } = await supabase.from("pantry").insert([pantryItem]);
-      
+
+      const { error: insertError } = await supabase
+        .from("pantry")
+        .insert([pantryItem]);
+
       if (insertError) {
         console.error("Insert failed:", insertError);
         toast.error(`Failed to add to pantry: ${insertError.message}`);
@@ -170,7 +172,7 @@ export default function ShoppingCartPage() {
       quantity: "1",
       category: item.item_type || "Pantry",
       purchased: new Date().toISOString(),
-      expiration_date: item.expiration_date || null,
+      expires_on: item.expiration_date || null,
       status: "good",
       notes: null,
       created_at: new Date().toISOString(),
